@@ -87,7 +87,8 @@ export default function WildcardStage({ wildcard, you, other, roundsWon = { you:
 
       <HazardBar />
 
-      <div className="flex flex-1 flex-col items-center justify-center px-8 py-6 text-center">
+      <div className="scrollbar-hide flex-1 overflow-y-auto">
+        <div className="flex min-h-full flex-col items-center justify-center px-8 py-6 text-center">
         <motion.div
           className="mb-2 font-mono text-xs font-bold tracking-[0.3em] uppercase"
           style={{ color: YELLOW }}
@@ -249,6 +250,7 @@ export default function WildcardStage({ wildcard, you, other, roundsWon = { you:
               Continue &rarr;
             </motion.button>
           )}
+        </div>
         </div>
       </div>
 
