@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
 import Avatar from "./Avatar";
@@ -219,7 +219,6 @@ function ClashIntro({ you, other, onDone }) {
 export default function FinalReveal({ you, other }) {
   const [phase, setPhase] = useState("clash"); // clash | result
   const [declared, setDeclared] = useState(false);
-  const shakeControls = useRef(null);
 
   const youPersona = derivePersona(you.accessories);
   const otherPersona = derivePersona(other.accessories);
@@ -321,7 +320,6 @@ export default function FinalReveal({ you, other }) {
 
           {/* winner reveal shake wraps the head-to-head comparison */}
           <motion.div
-            ref={shakeControls}
             className="flex w-full items-start justify-center gap-10"
             animate={declared ? { x: [0, -7, 7, -5, 5, 0] } : { x: 0 }}
             transition={{ duration: 0.45 }}

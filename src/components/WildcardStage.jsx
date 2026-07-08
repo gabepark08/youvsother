@@ -24,7 +24,8 @@ function HazardBar() {
 
 function deltaLabel(delta) {
   if (delta === 0) return "NO CHANGE";
-  return `${delta > 0 ? "+" : ""}${formatMoney(delta).replace("$", "$")}`;
+  // formatMoney already prefixes "-" for negatives; add "+" for gains.
+  return `${delta > 0 ? "+" : ""}${formatMoney(delta)}`;
 }
 
 // Full-screen no-choice event. One button applies fixed effects to both

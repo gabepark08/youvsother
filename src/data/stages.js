@@ -311,7 +311,7 @@ export const SEQUENCE = [
     age: 25,
     label: "Age 25 / The Speed Trap",
     prompt:
-      "The second thing is working.\n\nUsers care. Competitors notice. Investors circle.\n\nNow speed becomes expensive.\n\nWhat do you optimise for?",
+      "Whatever you rebuilt after the crash is finally catching.\n\nPeople care. Competitors notice. Money circles.\n\nNow speed becomes expensive.\n\nWhat do you optimise for?",
     subtext:
       "This is not about whether you can grow. It is about what growth is allowed to cost.",
     options: [
