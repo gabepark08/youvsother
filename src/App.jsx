@@ -60,6 +60,9 @@ function App() {
   const [stepIndex, setStepIndex] = useState(bootstrap ? bootstrap.stepIndex : 0);
   const [you, setYou] = useState(INITIAL_PLAYER);
   const [other, setOther] = useState(INITIAL_OTHER);
+  // Log of resolved rounds ({ youDelta, otherDelta }) used to compute the
+  // running "rounds won" scoreboard shown each stage.
+  const [rounds, setRounds] = useState([]);
 
   const handleStart = useCallback(() => {
     setClickPulse((c) => c + 1);
@@ -87,6 +90,7 @@ function App() {
       const otherOption = stage.options.find((o) => o.id === otherOptionId);
       setYou((s) => applyOutcome(s, youOption));
       setOther((s) => applyOutcome(s, otherOption));
+      setRounds((r) => [...r, { youDelta: youOption.netWorthDelta, otherDelta: otherOption.netWorthDelta }]);
       advance();
     },
     [stepIndex, advance],
@@ -96,12 +100,19 @@ function App() {
     const wildcard = SEQUENCE[stepIndex];
     setYou((s) => applyOutcome(s, wildcard.you));
     setOther((s) => applyOutcome(s, wildcard.other));
+    setRounds((r) => [...r, { youDelta: wildcard.you.netWorthDelta, otherDelta: wildcard.other.netWorthDelta }]);
     advance();
   }, [stepIndex, advance]);
 
   const isLanding = view === "landing";
   const step = SEQUENCE[stepIndex];
   const nextStep = SEQUENCE[stepIndex + 1];
+
+  // Rounds won so far (from completed stages) — the running scoreboard state.
+  const roundsWon = {
+    you: rounds.filter((r) => r.youDelta > r.otherDelta).length,
+    other: rounds.filter((r) => r.otherDelta > r.youDelta).length,
+  };
 
   return (
     <div className="scrollbar-hide relative min-h-screen w-screen overflow-x-hidden overflow-y-auto bg-bg text-text-primary font-mono">
@@ -189,6 +200,7 @@ function App() {
                     stage={step}
                     you={you}
                     other={other}
+                    roundsWon={roundsWon}
                     continueLabel={continueLabel(nextStep)}
                     onContinue={handleChoiceContinue}
                   />
@@ -199,6 +211,7 @@ function App() {
                     wildcard={step}
                     you={you}
                     other={other}
+                    roundsWon={roundsWon}
                     onContinue={handleWildcardContinue}
                   />
                 )}

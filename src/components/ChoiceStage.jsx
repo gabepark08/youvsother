@@ -3,6 +3,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import AvatarColumn from "./AvatarColumn";
 import OptionCard from "./OptionCard";
 import RoomVote from "./RoomVote";
+import RoundVerdict from "./RoundVerdict";
+import { formatMoney } from "./MoneyValue";
 
 const YOU_COLOR = "#00E5FF";
 const OTHER_COLOR = "#FF2E88";
@@ -30,7 +32,7 @@ function applyOption(base, option) {
   };
 }
 
-export default function ChoiceStage({ stage, you, other, onContinue, continueLabel }) {
+export default function ChoiceStage({ stage, you, other, roundsWon = { you: 0, other: 0 }, onContinue, continueLabel }) {
   const [selectedId, setSelectedId] = useState(null);
   const [otherCyclingId, setOtherCyclingId] = useState(null);
   const [otherSelectedId, setOtherSelectedId] = useState(null);
@@ -104,6 +106,16 @@ export default function ChoiceStage({ stage, you, other, onContinue, continueLab
 
   const paragraphs = stage.prompt.split("\n\n");
 
+  // Standings as you WALK INTO this stage (based on cumulative net worth so far).
+  const roundsPlayed = roundsWon.you + roundsWon.other;
+  const enteringGap = Math.abs(you.netWorth - other.netWorth);
+  const enteringLeader =
+    you.netWorth > other.netWorth ? "you" : other.netWorth > you.netWorth ? "other" : "tie";
+  const enteringLine =
+    enteringLeader === "tie"
+      ? "Dead even"
+      : `${enteringLeader === "you" ? "You lead" : "Other You leads"} by ${formatMoney(enteringGap)}`;
+
   return (
     <div className="mx-auto flex h-full w-full max-w-[1560px] flex-col items-center justify-center gap-4">
       {/* prompt banner */}
@@ -139,6 +151,35 @@ export default function ChoiceStage({ stage, you, other, onContinue, continueLab
           <p className="mt-3 font-mono text-xs leading-relaxed text-text-secondary">
             {stage.subtext}
           </p>
+
+          {roundsPlayed > 0 && (
+            <div className="mt-3 border-t border-[#F4F0E8]/12 pt-3">
+              <div className="font-mono text-[10px] font-bold tracking-[0.18em] text-text-secondary/60 uppercase">
+                Standings
+              </div>
+              <div className="mt-1.5 flex items-center justify-between font-mono text-xs font-bold">
+                <span style={{ color: YOU_COLOR }}>YOU {roundsWon.you}</span>
+                <span className="text-[9px] tracking-[0.14em] text-text-secondary/40 uppercase">
+                  Rounds
+                </span>
+                <span style={{ color: OTHER_COLOR }}>{roundsWon.other} OTHER</span>
+              </div>
+              <div
+                className="mt-1.5 font-mono text-[10px] tracking-[0.1em] uppercase"
+                style={{
+                  color:
+                    enteringLeader === "you"
+                      ? YOU_COLOR
+                      : enteringLeader === "other"
+                        ? OTHER_COLOR
+                        : "#F4F0E8",
+                }}
+              >
+                {enteringLine}
+              </div>
+            </div>
+          )}
+
           <p className="mt-3 font-mono text-[10px] tracking-[0.14em] text-text-secondary/60 uppercase">
             Press V // Room vote
           </p>
@@ -193,8 +234,20 @@ export default function ChoiceStage({ stage, you, other, onContinue, continueLab
         </div>
       </div>
 
-      {/* continue */}
-      <div className="flex h-14 items-center">
+      {/* round verdict + continue */}
+      <div className="flex min-h-14 w-full flex-col items-center gap-3">
+        <AnimatePresence>
+          {resolved && selectedOption && otherSelectedOption && (
+            <RoundVerdict
+              key="verdict"
+              youDelta={selectedOption.netWorthDelta}
+              otherDelta={otherSelectedOption.netWorthDelta}
+              youTotal={youDisplay.netWorth}
+              otherTotal={otherDisplay.netWorth}
+              priorWins={roundsWon}
+            />
+          )}
+        </AnimatePresence>
         <AnimatePresence>
           {resolved && (
             <motion.button
@@ -203,7 +256,7 @@ export default function ChoiceStage({ stage, you, other, onContinue, continueLab
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.35, ease: "easeOut" }}
+              transition={{ duration: 0.35, delay: 0.9, ease: "easeOut" }}
               whileHover={{ x: 4 }}
               onClick={() => onContinue({ youOptionId: selectedId, otherOptionId: otherSelectedId })}
             >

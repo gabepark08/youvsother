@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import Avatar from "./Avatar";
 import MoneyValue, { formatMoney } from "./MoneyValue";
+import RoundVerdict from "./RoundVerdict";
 
 const YOU_COLOR = "#00E5FF";
 const OTHER_COLOR = "#FF2E88";
@@ -26,7 +27,7 @@ function deltaLabel(delta) {
 
 // Full-screen no-choice event. One button applies fixed effects to both
 // timelines; the wildcard is not supposed to feel fair.
-export default function WildcardStage({ wildcard, you, other, onContinue }) {
+export default function WildcardStage({ wildcard, you, other, roundsWon = { you: 0, other: 0 }, onContinue }) {
   const [absorbed, setAbsorbed] = useState(false);
   const [flash, setFlash] = useState(0);
 
@@ -161,7 +162,26 @@ export default function WildcardStage({ wildcard, you, other, onContinue }) {
           })}
         </div>
 
-        <div className="mt-8 flex h-14 items-center">
+        <AnimatePresence>
+          {absorbed && (
+            <motion.div
+              className="mt-8 flex w-full justify-center"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.45 }}
+            >
+              <RoundVerdict
+                youDelta={wildcard.you.netWorthDelta}
+                otherDelta={wildcard.other.netWorthDelta}
+                youTotal={you.netWorth + wildcard.you.netWorthDelta}
+                otherTotal={other.netWorth + wildcard.other.netWorthDelta}
+                priorWins={roundsWon}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <div className="mt-6 flex h-14 items-center">
           {!absorbed ? (
             <motion.button
               type="button"
