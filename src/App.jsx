@@ -36,6 +36,39 @@ function applyOutcome(state, outcome) {
   };
 }
 
+// Share of the current lead that a wildcard swings. The bigger your lead, the
+// harder the market/luck knocks you back down.
+const LEAD_TAX_RATE = 0.22; // leader loses ~22% of their lead on top of the base hit
+const UNDERDOG_SHARE = 0.55; // trailer recovers ~55% of that swing
+
+// Rubber-band a wildcard against the current standings. Returns the wildcard
+// with adjusted deltas plus a `rubberBand` descriptor for the UI. Deterministic
+// (no randomness) so the displayed numbers always match what gets applied.
+function resolveWildcard(wildcard, youNet, otherNet) {
+  const gap = youNet - otherNet; // + => You are ahead
+  const swing = Math.round(Math.abs(gap) * LEAD_TAX_RATE);
+
+  // Effectively level race: no catch-up drama, run the wildcard as authored.
+  if (swing < 1 || gap === 0) return { ...wildcard, rubberBand: null };
+
+  const leaderKey = gap > 0 ? "you" : "other";
+  const trailerKey = gap > 0 ? "other" : "you";
+  const boost = Math.round(swing * UNDERDOG_SHARE);
+
+  return {
+    ...wildcard,
+    [leaderKey]: {
+      ...wildcard[leaderKey],
+      netWorthDelta: wildcard[leaderKey].netWorthDelta - swing,
+    },
+    [trailerKey]: {
+      ...wildcard[trailerKey],
+      netWorthDelta: wildcard[trailerKey].netWorthDelta + boost,
+    },
+    rubberBand: { leaderKey, trailerKey, swing, boost },
+  };
+}
+
 function continueLabel(nextStep) {
   if (!nextStep) return "Continue";
   if (nextStep.type === "final") return "See Age 30";
@@ -97,12 +130,14 @@ function App() {
   );
 
   const handleWildcardContinue = useCallback(() => {
-    const wildcard = SEQUENCE[stepIndex];
+    // Re-resolve with the same (unchanged) net worth used for display, so the
+    // rubber-banded deltas applied to state match exactly what the player saw.
+    const wildcard = resolveWildcard(SEQUENCE[stepIndex], you.netWorth, other.netWorth);
     setYou((s) => applyOutcome(s, wildcard.you));
     setOther((s) => applyOutcome(s, wildcard.other));
     setRounds((r) => [...r, { youDelta: wildcard.you.netWorthDelta, otherDelta: wildcard.other.netWorthDelta }]);
     advance();
-  }, [stepIndex, advance]);
+  }, [stepIndex, you.netWorth, other.netWorth, advance]);
 
   const isLanding = view === "landing";
   const step = SEQUENCE[stepIndex];
@@ -113,6 +148,10 @@ function App() {
     you: rounds.filter((r) => r.youDelta > r.otherDelta).length,
     other: rounds.filter((r) => r.otherDelta > r.youDelta).length,
   };
+
+  // Wildcards are rubber-banded against the current standings before display.
+  const resolvedStep =
+    step.type === "wildcard" ? resolveWildcard(step, you.netWorth, other.netWorth) : step;
 
   return (
     <div className="scrollbar-hide relative min-h-screen w-screen overflow-x-hidden overflow-y-auto bg-bg text-text-primary font-mono">
@@ -208,7 +247,7 @@ function App() {
                 {step.type === "wildcard" && (
                   <WildcardStage
                     key={step.id}
-                    wildcard={step}
+                    wildcard={resolvedStep}
                     you={you}
                     other={other}
                     roundsWon={roundsWon}

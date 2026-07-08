@@ -163,6 +163,47 @@ export default function WildcardStage({ wildcard, you, other, roundsWon = { you:
         </div>
 
         <AnimatePresence>
+          {absorbed && wildcard.rubberBand && (
+            <motion.div
+              className="mt-7 flex max-w-xl flex-col items-center gap-1 border-2 px-5 py-3 text-center"
+              style={{ borderColor: YELLOW, background: "rgba(245,255,61,0.06)" }}
+              initial={{ opacity: 0, scale: 0.92 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.4, delay: 0.55, ease: "backOut" }}
+            >
+              <span className="font-heading text-sm font-bold tracking-[0.24em] uppercase" style={{ color: YELLOW }}>
+                // Lead Tax
+              </span>
+              <p className="font-mono text-[13px] leading-relaxed text-text-primary">
+                Running in front paints a target on you.{" "}
+                <span
+                  className="font-bold"
+                  style={{ color: wildcard.rubberBand.leaderKey === "you" ? YOU_COLOR : OTHER_COLOR }}
+                >
+                  {wildcard.rubberBand.leaderKey === "you" ? "You" : "Other You"}
+                </span>{" "}
+                took an extra{" "}
+                <span className="font-bold" style={{ color: "#FF4D6D" }}>
+                  -{formatMoney(wildcard.rubberBand.swing)}
+                </span>{" "}
+                for leading, while{" "}
+                <span
+                  className="font-bold"
+                  style={{ color: wildcard.rubberBand.trailerKey === "you" ? YOU_COLOR : OTHER_COLOR }}
+                >
+                  {wildcard.rubberBand.trailerKey === "you" ? "You" : "Other You"}
+                </span>{" "}
+                clawed back{" "}
+                <span className="font-bold" style={{ color: "#37FF8B" }}>
+                  +{formatMoney(wildcard.rubberBand.boost)}
+                </span>
+                .
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
           {absorbed && (
             <motion.div
               className="mt-8 flex w-full justify-center"
