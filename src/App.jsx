@@ -6,14 +6,62 @@ import StartButton from "./components/StartButton";
 import GlitchBackground from "./components/GlitchBackground";
 import OriginSequence from "./components/OriginSequence";
 import LeaderboardTeaser from "./components/LeaderboardTeaser";
+import ChoiceStage from "./components/ChoiceStage";
+import WildcardStage from "./components/WildcardStage";
+import FinalReveal from "./components/FinalReveal";
+import { SEQUENCE, STARTING_NET_WORTH } from "./data/stages";
+
+const INITIAL_PLAYER = {
+  netWorth: STARTING_NET_WORTH,
+  trait: "Unwritten",
+  beat: "The first fork is coming.",
+  beats: [],
+  accessories: [],
+};
+
+const INITIAL_OTHER = {
+  ...INITIAL_PLAYER,
+  beat: "Waiting to become inconvenient.",
+};
+
+// Apply a chosen option / wildcard effect (both share the same shape) to a
+// player's accumulated state.
+function applyOutcome(state, outcome) {
+  return {
+    netWorth: state.netWorth + outcome.netWorthDelta,
+    trait: outcome.trait,
+    beat: outcome.beat,
+    beats: [...state.beats, outcome.beat],
+    accessories: [...state.accessories, outcome.item],
+  };
+}
+
+function continueLabel(nextStep) {
+  if (!nextStep) return "Continue";
+  if (nextStep.type === "final") return "See Age 30";
+  return `Continue to Age ${nextStep.age}`;
+}
+
+// Dev / demo bootstrap: ?view=play&step=N jumps straight to a step, skipping
+// the intro. Handy for rehearsing a specific stage. Ignored in normal play.
+function readBootstrap() {
+  if (typeof window === "undefined") return null;
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("view") !== "play") return null;
+  const step = Number(params.get("step"));
+  return { stepIndex: Number.isInteger(step) ? Math.max(0, Math.min(step, SEQUENCE.length - 1)) : 0 };
+}
 
 function App() {
+  const bootstrap = readBootstrap();
   const [isStartHovered, setIsStartHovered] = useState(false);
   const [clickPulse, setClickPulse] = useState(0);
-  const [view, setView] = useState("landing");
+  const [view, setView] = useState(bootstrap ? "play" : "landing"); // landing | origin | play
+  const [stepIndex, setStepIndex] = useState(bootstrap ? bootstrap.stepIndex : 0);
+  const [you, setYou] = useState(INITIAL_PLAYER);
+  const [other, setOther] = useState(INITIAL_OTHER);
 
   const handleStart = useCallback(() => {
-    console.log("Start clicked");
     setClickPulse((c) => c + 1);
     if (view === "landing") {
       setTimeout(() => setView("origin"), 550);
@@ -22,16 +70,41 @@ function App() {
 
   useEffect(() => {
     function onKeyDown(e) {
-      if (e.key === "Enter") handleStart();
+      if (view === "landing" && e.key === "Enter") handleStart();
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [handleStart]);
+  }, [view, handleStart]);
+
+  const advance = useCallback(() => {
+    setStepIndex((i) => Math.min(i + 1, SEQUENCE.length - 1));
+  }, []);
+
+  const handleChoiceContinue = useCallback(
+    ({ youOptionId, otherOptionId }) => {
+      const stage = SEQUENCE[stepIndex];
+      const youOption = stage.options.find((o) => o.id === youOptionId);
+      const otherOption = stage.options.find((o) => o.id === otherOptionId);
+      setYou((s) => applyOutcome(s, youOption));
+      setOther((s) => applyOutcome(s, otherOption));
+      advance();
+    },
+    [stepIndex, advance],
+  );
+
+  const handleWildcardContinue = useCallback(() => {
+    const wildcard = SEQUENCE[stepIndex];
+    setYou((s) => applyOutcome(s, wildcard.you));
+    setOther((s) => applyOutcome(s, wildcard.other));
+    advance();
+  }, [stepIndex, advance]);
 
   const isLanding = view === "landing";
+  const step = SEQUENCE[stepIndex];
+  const nextStep = SEQUENCE[stepIndex + 1];
 
   return (
-    <div className="scrollbar-hide relative h-screen w-screen overflow-x-hidden overflow-y-auto bg-bg text-text-primary font-mono">
+    <div className="scrollbar-hide relative min-h-screen w-screen overflow-x-hidden overflow-y-auto bg-bg text-text-primary font-mono">
       <GlitchBackground />
 
       {/* thin border frame around the whole visible page */}
@@ -40,7 +113,13 @@ function App() {
       <div className="relative z-20 flex min-h-screen flex-col">
         {isLanding && <StatusBar />}
 
-        <main className={`flex min-h-0 flex-1 ${isLanding ? "items-start px-8 pt-8 md:px-16 lg:items-center lg:pt-0" : "items-center px-6 py-5 md:px-10"}`}>
+        <main
+          className={`flex min-h-0 flex-1 ${
+            isLanding
+              ? "items-start px-8 pt-8 md:px-16 lg:items-center lg:pt-0"
+              : "items-center justify-center px-6 py-6 md:px-10"
+          }`}
+        >
           <AnimatePresence mode="wait">
             {isLanding ? (
               <motion.div
@@ -48,7 +127,6 @@ function App() {
                 className="grid w-full grid-cols-1 items-center gap-12 lg:mt-8 lg:grid-cols-[1.15fr_0.85fr]"
                 exit={{ opacity: 0, transition: { duration: 0.35 } }}
               >
-                {/* hero text - centred-left */}
                 <motion.div
                   className="max-w-2xl"
                   initial={{ opacity: 0, y: 16 }}
@@ -57,20 +135,18 @@ function App() {
                 >
                   <h1 className="font-heading text-6xl font-bold leading-[0.95] tracking-tight uppercase sm:text-7xl xl:text-8xl">
                     <span className="text-you">YOU</span>{" "}
-                    <span className="text-[0.5em] font-medium text-white/90">
-                      vs.
-                    </span>
+                    <span className="text-[0.5em] font-medium text-white/90">vs.</span>
                     <br />
                     <span className="text-other">THE OTHER YOU</span>
                   </h1>
 
                   <p className="mt-8 max-w-lg text-base text-text-secondary md:text-lg">
-                    A founder-life simulator where every choice creates a version
-                    of you that keeps going without permission.
+                    A founder-life simulator where every choice creates a version of you
+                    that keeps going without permission.
                   </p>
 
                   <p className="mt-4 max-w-lg font-mono text-[13px] tracking-wide text-text-secondary md:text-sm">
-                    4 choices. Multiple wildcards. 2 futures.{" "}
+                    5 forks. 2 wildcards. 2 futures.{" "}
                     <span className="text-accent">No correct path.</span>
                   </p>
 
@@ -83,48 +159,59 @@ function App() {
                   </div>
                 </motion.div>
 
-                {/* timeline visual */}
                 <div className="hidden w-full justify-self-end lg:flex">
                   <Timeline isStartHovered={isStartHovered} clickPulse={clickPulse} />
                 </div>
               </motion.div>
-            ) : (
+            ) : view === "origin" ? (
               <motion.div
                 key="origin"
-                className="flex h-full w-full"
+                className="flex h-full min-h-[80vh] w-full"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
+                exit={{ opacity: 0, transition: { duration: 0.4 } }}
                 transition={{ duration: 0.5, delay: 0.15 }}
               >
-                <OriginSequence />
+                <OriginSequence onComplete={() => setView("play")} />
+              </motion.div>
+            ) : (
+              <motion.div
+                key={`step-${stepIndex}`}
+                className="flex w-full items-center justify-center"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0, transition: { duration: 0.3 } }}
+                transition={{ duration: 0.45 }}
+              >
+                {step.type === "choice" && (
+                  <ChoiceStage
+                    key={step.id}
+                    stage={step}
+                    you={you}
+                    other={other}
+                    continueLabel={continueLabel(nextStep)}
+                    onContinue={handleChoiceContinue}
+                  />
+                )}
+                {step.type === "wildcard" && (
+                  <WildcardStage
+                    key={step.id}
+                    wildcard={step}
+                    you={you}
+                    other={other}
+                    onContinue={handleWildcardContinue}
+                  />
+                )}
+                {step.type === "final" && <FinalReveal you={you} other={other} />}
               </motion.div>
             )}
           </AnimatePresence>
         </main>
 
         {isLanding && (
-          <motion.div
-            className="absolute right-8 bottom-12 hidden items-center gap-2 font-mono text-[10px] font-bold tracking-[0.22em] text-text-secondary uppercase md:right-16 lg:flex"
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.45, delay: 2, ease: "easeOut" }}
-          >
-            <motion.span
-              animate={{ y: [0, 3, 0] }}
-              transition={{ duration: 1.1, repeat: Infinity, ease: "easeInOut" }}
-              aria-hidden="true"
-            >
-              v
-            </motion.span>
-            Scroll // Forkboard Offline
-          </motion.div>
-        )}
-
-        {isLanding && (
           <footer className="flex h-8 shrink-0 items-center justify-center border-t border-[#F4F0E8]/10 px-6 text-center text-[10px] leading-none tracking-wide text-text-secondary md:px-10">
             <span className="whitespace-nowrap">
-              Built for people who think one life path is suspiciously low sample
-              size.
+              Built for people who think one life path is suspiciously low sample size.
             </span>
           </footer>
         )}
