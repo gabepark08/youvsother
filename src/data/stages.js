@@ -378,6 +378,91 @@ export const SEQUENCE = [
 
 export const STARTING_NET_WORTH = 0;
 
+// ---------------------------------------------------------------------------
+// Persona system (final reveal)
+//
+// Every CHOICE option leaves an accessory `item` on the player. We map those
+// items to an archetype so the Age 30 reveal can award each side a title +
+// caption based on how they actually played. Wildcard items are intentionally
+// omitted here (they are forced, not chosen) so they never sway the persona.
+// ---------------------------------------------------------------------------
+export const ITEM_ARCHETYPE = {
+  // MONEY — chased the biggest number, fastest
+  "fresh-sneakers": "money",
+  "burnt-wallet": "money",
+  "term-sheet-folder": "money",
+  "racing-helmet": "money",
+  "golden-ticket": "money",
+  // SOCIAL — built for people first
+  "heart-sticker": "social",
+  "handshake-bracelet": "social",
+  "headset-clipboard": "social",
+  "company-hoodie": "social",
+  // BUILDER — hands on the machine
+  "glowing-laptop": "builder",
+  "template-blocks": "builder",
+  "duct-tape-patch": "builder",
+  // VISIONARY — sold the story before it existed
+  "ceo-lanyard": "visionary",
+  "tired-eyes": "visionary",
+  "film-clapper": "visionary",
+  "strange-crown": "visionary",
+  // STEADY — calm, controlled, compounding
+  sunglasses: "steady",
+  "pause-badge": "steady",
+  "index-fund-badge": "steady",
+  "toolbelt-cash-register": "steady",
+};
+
+// Title + caption per archetype, plus tie-break priority (lower wins ties).
+export const ARCHETYPES = {
+  money: {
+    title: "Money Hotshot",
+    caption: "You optimised for the biggest number — and mostly got it.",
+    priority: 1,
+  },
+  social: {
+    title: "Most Loved",
+    caption: "You built for people first. The money was a side effect.",
+    priority: 2,
+  },
+  builder: {
+    title: "The Machine",
+    caption: "You kept your hands on everything and owned the outcome.",
+    priority: 3,
+  },
+  visionary: {
+    title: "Main Character",
+    caption: "You sold the vision before it existed and made people believe.",
+    priority: 4,
+  },
+  steady: {
+    title: "Quiet Compounder",
+    caption: "No headlines. Just a line that kept going up.",
+    priority: 5,
+  },
+};
+
+// Tally a player's accessory items into a dominant archetype. Returns the meta
+// object ({ title, caption }) or a neutral fallback if nothing registered.
+export function derivePersona(accessories = []) {
+  const tally = {};
+  for (const item of accessories) {
+    const key = ITEM_ARCHETYPE[item];
+    if (key) tally[key] = (tally[key] || 0) + 1;
+  }
+  const keys = Object.keys(tally);
+  if (keys.length === 0) {
+    return { title: "Undecided", caption: "The timeline never forced your hand." };
+  }
+  keys.sort((a, b) => {
+    if (tally[b] !== tally[a]) return tally[b] - tally[a]; // most picks first
+    return ARCHETYPES[a].priority - ARCHETYPES[b].priority; // then priority
+  });
+  const { title, caption } = ARCHETYPES[keys[0]];
+  return { title, caption };
+}
+
 // Fake leaderboard rows for the final reveal — pure joke, no one asked.
 export const FAKE_LEADERBOARD = [
   "Most Expensive Regret",

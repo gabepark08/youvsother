@@ -2,6 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import Avatar from "./Avatar";
 import MoneyValue, { formatMoney } from "./MoneyValue";
+import RoundVerdict from "./RoundVerdict";
+import StageProgress from "./StageProgress";
+import { playWildcard } from "../lib/sfx";
 
 const YOU_COLOR = "#00E5FF";
 const OTHER_COLOR = "#FF2E88";
@@ -26,13 +29,14 @@ function deltaLabel(delta) {
 
 // Full-screen no-choice event. One button applies fixed effects to both
 // timelines; the wildcard is not supposed to feel fair.
-export default function WildcardStage({ wildcard, you, other, onContinue }) {
+export default function WildcardStage({ wildcard, stepIndex, you, other, roundsWon = { you: 0, other: 0 }, onContinue }) {
   const [absorbed, setAbsorbed] = useState(false);
   const [flash, setFlash] = useState(0);
 
   const absorb = useCallback(() => {
     if (absorbed) return;
     setAbsorbed(true);
+    playWildcard();
     // camera-flash / shock burst
     let count = 0;
     const id = setInterval(() => {
@@ -86,7 +90,11 @@ export default function WildcardStage({ wildcard, you, other, onContinue }) {
 
       <HazardBar />
 
-      <div className="flex flex-1 flex-col items-center justify-center px-8 py-6 text-center">
+      <div className="scrollbar-hide flex-1 overflow-y-auto">
+        <div className="flex min-h-full flex-col items-center justify-center px-8 py-6 text-center">
+        <div className="mb-5 w-full">
+          <StageProgress stepIndex={stepIndex} />
+        </div>
         <motion.div
           className="mb-2 font-mono text-xs font-bold tracking-[0.3em] uppercase"
           style={{ color: YELLOW }}
@@ -161,7 +169,67 @@ export default function WildcardStage({ wildcard, you, other, onContinue }) {
           })}
         </div>
 
-        <div className="mt-8 flex h-14 items-center">
+        <AnimatePresence>
+          {absorbed && wildcard.rubberBand && (
+            <motion.div
+              className="mt-7 flex max-w-xl flex-col items-center gap-1 border-2 px-5 py-3 text-center"
+              style={{ borderColor: YELLOW, background: "rgba(245,255,61,0.06)" }}
+              initial={{ opacity: 0, scale: 0.92 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.4, delay: 0.55, ease: "backOut" }}
+            >
+              <span className="font-heading text-sm font-bold tracking-[0.24em] uppercase" style={{ color: YELLOW }}>
+                // Lead Tax
+              </span>
+              <p className="font-mono text-[13px] leading-relaxed text-text-primary">
+                Running in front paints a target on you.{" "}
+                <span
+                  className="font-bold"
+                  style={{ color: wildcard.rubberBand.leaderKey === "you" ? YOU_COLOR : OTHER_COLOR }}
+                >
+                  {wildcard.rubberBand.leaderKey === "you" ? "You" : "Other You"}
+                </span>{" "}
+                took an extra{" "}
+                <span className="font-bold" style={{ color: "#FF4D6D" }}>
+                  -{formatMoney(wildcard.rubberBand.swing)}
+                </span>{" "}
+                for leading, while{" "}
+                <span
+                  className="font-bold"
+                  style={{ color: wildcard.rubberBand.trailerKey === "you" ? YOU_COLOR : OTHER_COLOR }}
+                >
+                  {wildcard.rubberBand.trailerKey === "you" ? "You" : "Other You"}
+                </span>{" "}
+                clawed back{" "}
+                <span className="font-bold" style={{ color: "#37FF8B" }}>
+                  +{formatMoney(wildcard.rubberBand.boost)}
+                </span>
+                .
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {absorbed && (
+            <motion.div
+              className="mt-8 flex w-full justify-center"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.45 }}
+            >
+              <RoundVerdict
+                youDelta={wildcard.you.netWorthDelta}
+                otherDelta={wildcard.other.netWorthDelta}
+                youTotal={you.netWorth + wildcard.you.netWorthDelta}
+                otherTotal={other.netWorth + wildcard.other.netWorthDelta}
+                priorWins={roundsWon}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <div className="mt-6 flex h-14 items-center">
           {!absorbed ? (
             <motion.button
               type="button"
@@ -188,6 +256,7 @@ export default function WildcardStage({ wildcard, you, other, onContinue }) {
               Continue &rarr;
             </motion.button>
           )}
+        </div>
         </div>
       </div>
 

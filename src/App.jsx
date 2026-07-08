@@ -10,6 +10,7 @@ import ChoiceStage from "./components/ChoiceStage";
 import WildcardStage from "./components/WildcardStage";
 import FinalReveal from "./components/FinalReveal";
 import { SEQUENCE, STARTING_NET_WORTH } from "./data/stages";
+import { toggleMute, isMuted } from "./lib/sfx";
 
 const INITIAL_PLAYER = {
   netWorth: STARTING_NET_WORTH,
@@ -33,6 +34,39 @@ function applyOutcome(state, outcome) {
     beat: outcome.beat,
     beats: [...state.beats, outcome.beat],
     accessories: [...state.accessories, outcome.item],
+  };
+}
+
+// Share of the current lead that a wildcard swings. The bigger your lead, the
+// harder the market/luck knocks you back down.
+const LEAD_TAX_RATE = 0.22; // leader loses ~22% of their lead on top of the base hit
+const UNDERDOG_SHARE = 0.55; // trailer recovers ~55% of that swing
+
+// Rubber-band a wildcard against the current standings. Returns the wildcard
+// with adjusted deltas plus a `rubberBand` descriptor for the UI. Deterministic
+// (no randomness) so the displayed numbers always match what gets applied.
+function resolveWildcard(wildcard, youNet, otherNet) {
+  const gap = youNet - otherNet; // + => You are ahead
+  const swing = Math.round(Math.abs(gap) * LEAD_TAX_RATE);
+
+  // Effectively level race: no catch-up drama, run the wildcard as authored.
+  if (swing < 1 || gap === 0) return { ...wildcard, rubberBand: null };
+
+  const leaderKey = gap > 0 ? "you" : "other";
+  const trailerKey = gap > 0 ? "other" : "you";
+  const boost = Math.round(swing * UNDERDOG_SHARE);
+
+  return {
+    ...wildcard,
+    [leaderKey]: {
+      ...wildcard[leaderKey],
+      netWorthDelta: wildcard[leaderKey].netWorthDelta - swing,
+    },
+    [trailerKey]: {
+      ...wildcard[trailerKey],
+      netWorthDelta: wildcard[trailerKey].netWorthDelta + boost,
+    },
+    rubberBand: { leaderKey, trailerKey, swing, boost },
   };
 }
 
@@ -60,6 +94,10 @@ function App() {
   const [stepIndex, setStepIndex] = useState(bootstrap ? bootstrap.stepIndex : 0);
   const [you, setYou] = useState(INITIAL_PLAYER);
   const [other, setOther] = useState(INITIAL_OTHER);
+  // Log of resolved rounds ({ youDelta, otherDelta }) used to compute the
+  // running "rounds won" scoreboard shown each stage.
+  const [rounds, setRounds] = useState([]);
+  const [muted, setMuted] = useState(isMuted());
 
   const handleStart = useCallback(() => {
     setClickPulse((c) => c + 1);
@@ -87,21 +125,35 @@ function App() {
       const otherOption = stage.options.find((o) => o.id === otherOptionId);
       setYou((s) => applyOutcome(s, youOption));
       setOther((s) => applyOutcome(s, otherOption));
+      setRounds((r) => [...r, { youDelta: youOption.netWorthDelta, otherDelta: otherOption.netWorthDelta }]);
       advance();
     },
     [stepIndex, advance],
   );
 
   const handleWildcardContinue = useCallback(() => {
-    const wildcard = SEQUENCE[stepIndex];
+    // Re-resolve with the same (unchanged) net worth used for display, so the
+    // rubber-banded deltas applied to state match exactly what the player saw.
+    const wildcard = resolveWildcard(SEQUENCE[stepIndex], you.netWorth, other.netWorth);
     setYou((s) => applyOutcome(s, wildcard.you));
     setOther((s) => applyOutcome(s, wildcard.other));
+    setRounds((r) => [...r, { youDelta: wildcard.you.netWorthDelta, otherDelta: wildcard.other.netWorthDelta }]);
     advance();
-  }, [stepIndex, advance]);
+  }, [stepIndex, you.netWorth, other.netWorth, advance]);
 
   const isLanding = view === "landing";
   const step = SEQUENCE[stepIndex];
   const nextStep = SEQUENCE[stepIndex + 1];
+
+  // Rounds won so far (from completed stages) — the running scoreboard state.
+  const roundsWon = {
+    you: rounds.filter((r) => r.youDelta > r.otherDelta).length,
+    other: rounds.filter((r) => r.otherDelta > r.youDelta).length,
+  };
+
+  // Wildcards are rubber-banded against the current standings before display.
+  const resolvedStep =
+    step.type === "wildcard" ? resolveWildcard(step, you.netWorth, other.netWorth) : step;
 
   return (
     <div className="scrollbar-hide relative min-h-screen w-screen overflow-x-hidden overflow-y-auto bg-bg text-text-primary font-mono">
@@ -109,6 +161,22 @@ function App() {
 
       {/* thin border frame around the whole visible page */}
       <div className="pointer-events-none fixed inset-3 z-30 border border-[#F4F0E8]/15 md:inset-4" />
+
+      {/* audio toggle for live presenting */}
+      {!isLanding && (
+        <button
+          type="button"
+          onClick={() => setMuted(toggleMute())}
+          aria-label={muted ? "Unmute sound effects" : "Mute sound effects"}
+          className="fixed right-5 top-5 z-50 flex items-center gap-2 border border-[#F4F0E8]/25 bg-bg/70 px-3 py-1.5 font-mono text-[10px] font-bold tracking-[0.16em] text-text-secondary uppercase backdrop-blur-sm transition-colors hover:border-accent hover:text-accent md:right-6 md:top-6"
+        >
+          <span
+            className="inline-block h-2 w-2 rounded-full"
+            style={{ background: muted ? "#FF4D6D" : "#37FF8B" }}
+          />
+          {muted ? "Audio Off" : "Audio On"}
+        </button>
+      )}
 
       <div className="relative z-20 flex min-h-screen flex-col">
         {isLanding && <StatusBar />}
@@ -187,8 +255,10 @@ function App() {
                   <ChoiceStage
                     key={step.id}
                     stage={step}
+                    stepIndex={stepIndex}
                     you={you}
                     other={other}
+                    roundsWon={roundsWon}
                     continueLabel={continueLabel(nextStep)}
                     onContinue={handleChoiceContinue}
                   />
@@ -196,9 +266,11 @@ function App() {
                 {step.type === "wildcard" && (
                   <WildcardStage
                     key={step.id}
-                    wildcard={step}
+                    wildcard={resolvedStep}
+                    stepIndex={stepIndex}
                     you={you}
                     other={other}
+                    roundsWon={roundsWon}
                     onContinue={handleWildcardContinue}
                   />
                 )}
