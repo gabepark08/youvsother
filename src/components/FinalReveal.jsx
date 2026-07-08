@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
 import Avatar from "./Avatar";
 import { formatMoney } from "./MoneyValue";
-import { FAKE_LEADERBOARD, derivePersona } from "../data/stages";
+import { FAKE_LEADERBOARD, buildLeaderboard, derivePersona } from "../data/stages";
 import { playImpact, playTick, playWinner } from "../lib/sfx";
 
 const YOU_COLOR = "#00E5FF";
@@ -224,6 +224,10 @@ export default function FinalReveal({ you, other }) {
   const youPersona = derivePersona(you.accessories);
   const otherPersona = derivePersona(other.accessories);
 
+  const leaderboard = buildLeaderboard(you.netWorth, other.netWorth);
+  const youRank = leaderboard.find((r) => r.isYou)?.rank;
+  const totalPlayers = leaderboard.length;
+
   const gap = Math.abs(you.netWorth - other.netWorth);
   const youBigger = you.netWorth > other.netWorth;
   const otherBigger = other.netWorth > you.netWorth;
@@ -367,6 +371,69 @@ export default function FinalReveal({ you, other }) {
             <div className="font-mono text-[12px] tracking-wide text-text-secondary">
               Bigger number does not mean cleaner life.
             </div>
+          </motion.div>
+
+          {/* ranked leaderboard vs fake people */}
+          <motion.div
+            className="w-full max-w-2xl border-2 border-[#F4F0E8]/15 bg-panel/50 p-6"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.85 }}
+          >
+            <div className="flex items-center justify-between font-mono text-xs font-bold tracking-[0.2em] uppercase">
+              <span className="text-accent">See How You Compared</span>
+              <span className="text-text-secondary/60">
+                {youRank ? `#${youRank} of ${totalPlayers}` : ""}
+              </span>
+            </div>
+            <p className="mt-2 font-mono text-[11px] leading-relaxed text-text-secondary">
+              Everyone who ran the same timeline, ranked by net worth at 30.
+            </p>
+            <ul className="mt-4 flex flex-col gap-1.5">
+              {leaderboard.map((row, i) => {
+                const rowColor = row.isYou ? YOU_COLOR : row.isOther ? OTHER_COLOR : null;
+                const highlight = row.isYou || row.isOther;
+                return (
+                  <motion.li
+                    key={row.name}
+                    className="flex items-center justify-between border px-3 py-2.5"
+                    style={{
+                      borderColor: highlight ? rowColor : "transparent",
+                      background: highlight ? `${rowColor}12` : "transparent",
+                    }}
+                    initial={{ opacity: 0, x: -12 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.35, delay: 0.95 + i * 0.06 }}
+                  >
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span
+                        className="w-6 shrink-0 text-center font-heading text-sm font-bold"
+                        style={{ color: highlight ? rowColor : "var(--color-text-secondary)" }}
+                      >
+                        {row.rank}
+                      </span>
+                      <div className="min-w-0">
+                        <div
+                          className="truncate font-heading text-sm font-bold tracking-wide uppercase"
+                          style={{ color: highlight ? rowColor : "var(--color-text-primary)" }}
+                        >
+                          {row.name}
+                        </div>
+                        <div className="truncate font-mono text-[10px] tracking-wide text-text-secondary">
+                          {row.tag}
+                        </div>
+                      </div>
+                    </div>
+                    <span
+                      className="shrink-0 font-heading text-sm font-bold md:text-base"
+                      style={{ color: highlight ? rowColor : "var(--color-text-primary)" }}
+                    >
+                      {formatMoney(row.netWorth)}
+                    </span>
+                  </motion.li>
+                );
+              })}
+            </ul>
           </motion.div>
 
           {/* fake leaderboard */}

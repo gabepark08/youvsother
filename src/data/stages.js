@@ -471,3 +471,28 @@ export const FAKE_LEADERBOARD = [
   "Biggest Other You Gap",
   "Least Clean Timeline",
 ];
+
+// Fake "other people who ran the same timeline" — used to rank the player on a
+// global-style leaderboard at the end. Net worths span a wide range so the
+// player usually lands somewhere in the middle of the pack.
+export const FAKE_PLAYERS = [
+  { name: "Kai Renner", tag: "Sold too early", netWorth: 4200000 },
+  { name: "Mara Vance", tag: "Never took the meeting", netWorth: 2650000 },
+  { name: "Dex Okafor", tag: "All gas, no brakes", netWorth: 1875000 },
+  { name: "Priya Sol", tag: "Slow and deliberate", netWorth: 1120000 },
+  { name: "Theo Marsh", tag: "Burned the runway", netWorth: 740000 },
+  { name: "Nova Lin", tag: "Played it safe", netWorth: 415000 },
+  { name: "Ravi Bloom", tag: "Chased the vibe", netWorth: 168000 },
+];
+
+// Build a ranked leaderboard by slotting the player (and optionally their
+// Other You) into the fake field, sorted by net worth descending.
+export function buildLeaderboard(youNetWorth, otherNetWorth) {
+  const rows = [
+    ...FAKE_PLAYERS,
+    { name: "You", tag: "This timeline", netWorth: youNetWorth, isYou: true },
+    { name: "Other You", tag: "The one that also kept going", netWorth: otherNetWorth, isOther: true },
+  ];
+  rows.sort((a, b) => b.netWorth - a.netWorth);
+  return rows.map((row, i) => ({ ...row, rank: i + 1 }));
+}
