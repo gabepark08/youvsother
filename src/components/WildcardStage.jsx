@@ -3,6 +3,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import Avatar from "./Avatar";
 import MoneyValue, { formatMoney } from "./MoneyValue";
 import RoundVerdict from "./RoundVerdict";
+import StageProgress from "./StageProgress";
+import { playWildcard } from "../lib/sfx";
 
 const YOU_COLOR = "#00E5FF";
 const OTHER_COLOR = "#FF2E88";
@@ -27,13 +29,14 @@ function deltaLabel(delta) {
 
 // Full-screen no-choice event. One button applies fixed effects to both
 // timelines; the wildcard is not supposed to feel fair.
-export default function WildcardStage({ wildcard, you, other, roundsWon = { you: 0, other: 0 }, onContinue }) {
+export default function WildcardStage({ wildcard, stepIndex, you, other, roundsWon = { you: 0, other: 0 }, onContinue }) {
   const [absorbed, setAbsorbed] = useState(false);
   const [flash, setFlash] = useState(0);
 
   const absorb = useCallback(() => {
     if (absorbed) return;
     setAbsorbed(true);
+    playWildcard();
     // camera-flash / shock burst
     let count = 0;
     const id = setInterval(() => {
@@ -89,6 +92,9 @@ export default function WildcardStage({ wildcard, you, other, roundsWon = { you:
 
       <div className="scrollbar-hide flex-1 overflow-y-auto">
         <div className="flex min-h-full flex-col items-center justify-center px-8 py-6 text-center">
+        <div className="mb-5 w-full">
+          <StageProgress stepIndex={stepIndex} />
+        </div>
         <motion.div
           className="mb-2 font-mono text-xs font-bold tracking-[0.3em] uppercase"
           style={{ color: YELLOW }}

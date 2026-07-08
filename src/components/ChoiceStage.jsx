@@ -4,7 +4,9 @@ import AvatarColumn from "./AvatarColumn";
 import OptionCard from "./OptionCard";
 import RoomVote from "./RoomVote";
 import RoundVerdict from "./RoundVerdict";
-import { formatMoney } from "./MoneyValue";
+import StageProgress from "./StageProgress";
+import MoneyValue, { formatMoney } from "./MoneyValue";
+import { playSelect, playOther } from "../lib/sfx";
 
 const YOU_COLOR = "#00E5FF";
 const OTHER_COLOR = "#FF2E88";
@@ -32,12 +34,35 @@ function applyOption(base, option) {
   };
 }
 
-export default function ChoiceStage({ stage, you, other, roundsWon = { you: 0, other: 0 }, onContinue, continueLabel }) {
+// Compact live stat card used on smaller screens in place of the full avatar
+// columns, so the head-to-head net worth / trait is still visible.
+function MiniStat({ identity, color, display, align = "left" }) {
+  return (
+    <div
+      className={`flex flex-col gap-1 border-2 bg-panel/50 px-4 py-3 ${align === "right" ? "items-end text-right" : "items-start text-left"}`}
+      style={{ borderColor: `${color}55` }}
+    >
+      <span className="font-heading text-sm font-bold tracking-[0.16em] uppercase" style={{ color }}>
+        {identity}
+      </span>
+      <span className="font-heading text-2xl font-bold text-text-primary">
+        <MoneyValue value={display.netWorth} />
+      </span>
+      <span className="font-mono text-[10px] font-bold tracking-[0.12em] uppercase" style={{ color }}>
+        {display.trait}
+      </span>
+    </div>
+  );
+}
+
+export default function ChoiceStage({ stage, stepIndex, you, other, roundsWon = { you: 0, other: 0 }, onContinue, continueLabel }) {
   const [selectedId, setSelectedId] = useState(null);
   const [otherCyclingId, setOtherCyclingId] = useState(null);
   const [otherSelectedId, setOtherSelectedId] = useState(null);
   const [isResolvingOther, setIsResolvingOther] = useState(false);
   const [voteOpen, setVoteOpen] = useState(false);
+  // Ephemeral, punchy "lock-in" banner: { text, color } or null.
+  const [lockFlash, setLockFlash] = useState(null);
 
   const options = stage.options;
   const selectedOption = useMemo(
@@ -56,6 +81,10 @@ export default function ChoiceStage({ stage, you, other, roundsWon = { you: 0, o
     (id) => {
       if (selectedId || isResolvingOther) return;
       setSelectedId(id);
+      // Loud "you locked in" moment.
+      playSelect();
+      setLockFlash({ text: "You Locked In", color: YOU_COLOR });
+      setTimeout(() => setLockFlash(null), 900);
       const unchosen = options.filter((o) => o.id !== id);
 
       // Beat, then run the OTHER YOU random-selection animation.
@@ -79,6 +108,10 @@ export default function ChoiceStage({ stage, you, other, roundsWon = { you: 0, o
           setOtherCyclingId(null);
           setOtherSelectedId(finalOption.id);
           setIsResolvingOther(false);
+          // Loud "other you kept going" counter-moment.
+          playOther();
+          setLockFlash({ text: "Other You Kept Going", color: OTHER_COLOR });
+          setTimeout(() => setLockFlash(null), 1100);
         }, duration);
       }, 700);
     },
@@ -110,6 +143,11 @@ export default function ChoiceStage({ stage, you, other, roundsWon = { you: 0, o
 
   const paragraphs = stage.prompt.split("\n\n");
 
+  // Copy polish: the panel heading already conveys "no correct answer", so drop
+  // that repeated lead-in from the subtext. First fork gets its own heading.
+  const isFirstFork = stage.age === 16;
+  const cleanSubtext = stage.subtext.replace(/^\s*no correct answer\.?\s*/i, "");
+
   // Standings as you WALK INTO this stage (based on cumulative net worth so far).
   const roundsPlayed = roundsWon.you + roundsWon.other;
   const enteringGap = Math.abs(you.netWorth - other.netWorth);
@@ -121,13 +159,36 @@ export default function ChoiceStage({ stage, you, other, roundsWon = { you: 0, o
       : `${enteringLeader === "you" ? "You lead" : "Other You leads"} by ${formatMoney(enteringGap)}`;
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-[1560px] flex-col items-center justify-center gap-4">
+    <div className="relative mx-auto flex min-h-full w-full max-w-[1560px] flex-col items-center justify-center gap-4 pb-2 pt-14 md:pt-2">
+      {/* punchy lock-in flash banner */}
+      <AnimatePresence>
+        {lockFlash && (
+          <motion.div
+            key={lockFlash.text}
+            className="pointer-events-none absolute inset-x-0 top-1/2 z-30 flex -translate-y-1/2 justify-center"
+            initial={{ opacity: 0, scale: 0.7 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.1 }}
+            transition={{ type: "spring", stiffness: 300, damping: 15 }}
+          >
+            <div
+              className="border-4 bg-bg/85 px-8 py-4 font-heading text-3xl font-bold tracking-[0.14em] uppercase backdrop-blur-sm md:text-5xl"
+              style={{ color: lockFlash.color, borderColor: lockFlash.color }}
+            >
+              {lockFlash.text}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <StageProgress stepIndex={stepIndex} />
+
       {/* prompt banner */}
       <motion.div
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
-        className="grid w-full grid-cols-[minmax(0,1fr)_340px] items-stretch gap-8 border-2 border-[#F4F0E8]/20 bg-panel/60 px-9 py-5 text-left"
+        className="grid w-full grid-cols-1 items-stretch gap-5 border-2 border-[#F4F0E8]/20 bg-panel/60 px-5 py-4 text-left md:px-9 md:py-5 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-8"
       >
         <div>
           <div className="font-mono text-sm font-bold tracking-[0.24em] text-accent uppercase">
@@ -150,10 +211,10 @@ export default function ChoiceStage({ stage, you, other, roundsWon = { you: 0, o
         </div>
         <div className="flex flex-col justify-center border border-[#F4F0E8]/20 bg-bg/45 px-5 py-4">
           <div className="font-mono text-xs font-bold tracking-[0.16em] text-accent uppercase">
-            No correct answer
+            {isFirstFork ? "First Fork Rule" : "Both Lives Continue"}
           </div>
           <p className="mt-3 font-mono text-xs leading-relaxed text-text-secondary">
-            {stage.subtext}
+            {cleanSubtext}
           </p>
 
           {roundsPlayed > 0 && (
@@ -190,9 +251,9 @@ export default function ChoiceStage({ stage, you, other, roundsWon = { you: 0, o
         </div>
       </motion.div>
 
-      {/* YOU · cards · OTHER YOU */}
-      <div className="flex w-full items-stretch justify-center gap-7">
-        <div className="flex flex-1 items-center justify-center">
+      {/* YOU · cards · OTHER YOU (arcade layout on xl, stacked below) */}
+      <div className="flex w-full flex-col items-center gap-5 xl:flex-row xl:items-stretch xl:justify-center xl:gap-7">
+        <div className="hidden flex-1 items-center justify-center xl:flex">
           <AvatarColumn
             identity="You"
             color={YOU_COLOR}
@@ -205,7 +266,13 @@ export default function ChoiceStage({ stage, you, other, roundsWon = { you: 0, o
           />
         </div>
 
-        <div className="grid shrink-0 grid-cols-2 gap-4" style={{ width: 760 }}>
+        {/* compact head-to-head stats for smaller screens */}
+        <div className="grid w-full max-w-[760px] grid-cols-2 gap-3 xl:hidden">
+          <MiniStat identity="You" color={YOU_COLOR} display={youDisplay} />
+          <MiniStat identity="Other You" color={OTHER_COLOR} display={otherDisplay} align="right" />
+        </div>
+
+        <div className="grid w-full max-w-[760px] grid-cols-1 gap-4 sm:grid-cols-2 xl:w-[760px] xl:shrink-0">
           {options.map((option) => {
             let status = "idle";
             if (selectedId === option.id) status = "you";
@@ -224,7 +291,7 @@ export default function ChoiceStage({ stage, you, other, roundsWon = { you: 0, o
           })}
         </div>
 
-        <div className="flex flex-1 items-center justify-center">
+        <div className="hidden flex-1 items-center justify-center xl:flex">
           <AvatarColumn
             identity="Other You"
             color={OTHER_COLOR}

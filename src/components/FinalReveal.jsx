@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import confetti from "canvas-confetti";
 import Avatar from "./Avatar";
 import { formatMoney } from "./MoneyValue";
 import { FAKE_LEADERBOARD, derivePersona } from "../data/stages";
+import { playImpact, playTick, playWinner } from "../lib/sfx";
 
 const YOU_COLOR = "#00E5FF";
 const OTHER_COLOR = "#FF2E88";
@@ -10,18 +12,24 @@ const ACCENT = "#F5FF3D";
 
 // Count from 0 -> value once, after an optional delay. Used for the dramatic
 // net-worth reveal so the numbers "spin up" in front of the audience.
-function CountUp({ value, duration = 1700, delay = 0 }) {
+function CountUp({ value, duration = 1700, delay = 0, sound = false }) {
   const [display, setDisplay] = useState(0);
 
   useEffect(() => {
     let rafId;
     let startedAt;
+    let lastTick = 0;
     const startTimer = setTimeout(() => {
       startedAt = performance.now();
       const tick = (now) => {
         const progress = Math.min((now - startedAt) / duration, 1);
         const eased = 1 - (1 - progress) ** 3;
         setDisplay(value * eased);
+        // Rapid ticking that thins out as the number settles.
+        if (sound && progress < 1 && now - lastTick > 55) {
+          lastTick = now;
+          playTick();
+        }
         if (progress < 1) rafId = requestAnimationFrame(tick);
       };
       rafId = requestAnimationFrame(tick);
@@ -99,7 +107,7 @@ function Side({ identity, color, state, persona, isWinner, declared, delay }) {
           animate={isWinner && declared ? { scale: [1, 1.12, 1], color: ["#F4F0E8", color, "#F4F0E8"] } : {}}
           transition={{ duration: 0.5 }}
         >
-          <CountUp value={state.netWorth} delay={delay * 1000 + 250} />
+          <CountUp value={state.netWorth} delay={delay * 1000 + 250} sound />
         </motion.div>
       </div>
 
@@ -132,7 +140,12 @@ function Side({ identity, color, state, persona, isWinner, declared, delay }) {
 function ClashIntro({ you, other, onDone }) {
   useEffect(() => {
     const timer = setTimeout(onDone, 2900);
-    return () => clearTimeout(timer);
+    // Impact hit timed to when the giant "VS" slams into place.
+    const impact = setTimeout(playImpact, 850);
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(impact);
+    };
   }, [onDone]);
 
   return (
@@ -232,6 +245,30 @@ export default function FinalReveal({ you, other }) {
     const timer = setTimeout(() => setDeclared(true), 2350);
     return () => clearTimeout(timer);
   }, [phase]);
+
+  // Celebrate the moment the winner is declared: sting + confetti in both
+  // player colors bursting from the lower corners toward the center.
+  useEffect(() => {
+    if (!declared) return;
+    playWinner();
+    const fire = (originX, angle) =>
+      confetti({
+        particleCount: 90,
+        spread: 70,
+        startVelocity: 55,
+        angle,
+        origin: { x: originX, y: 1 },
+        colors: [YOU_COLOR, OTHER_COLOR, ACCENT],
+        disableForReducedMotion: true,
+      });
+    fire(0.1, 60);
+    fire(0.9, 120);
+    const again = setTimeout(() => {
+      fire(0.2, 65);
+      fire(0.8, 115);
+    }, 280);
+    return () => clearTimeout(again);
+  }, [declared]);
 
   let closingLine;
   if (isClose) {
@@ -371,6 +408,16 @@ export default function FinalReveal({ you, other }) {
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 1 }}
           >
+            <div className="flex flex-col items-center gap-1 font-heading text-lg font-bold tracking-tight uppercase md:text-xl">
+              <span>
+                <span style={{ color: YOU_COLOR }}>{youPersona.title}</span>
+                <span className="mx-2 text-text-secondary/50">vs</span>
+                <span style={{ color: OTHER_COLOR }}>{otherPersona.title}</span>
+              </span>
+              <span className="font-mono text-[11px] font-medium normal-case tracking-wide text-text-secondary">
+                Same person. Different receipt.
+              </span>
+            </div>
             <p className="max-w-2xl font-heading text-xl font-bold leading-snug text-text-primary md:text-2xl">
               {closingLine}
             </p>

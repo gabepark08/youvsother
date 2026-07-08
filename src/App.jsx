@@ -10,6 +10,7 @@ import ChoiceStage from "./components/ChoiceStage";
 import WildcardStage from "./components/WildcardStage";
 import FinalReveal from "./components/FinalReveal";
 import { SEQUENCE, STARTING_NET_WORTH } from "./data/stages";
+import { toggleMute, isMuted } from "./lib/sfx";
 
 const INITIAL_PLAYER = {
   netWorth: STARTING_NET_WORTH,
@@ -96,6 +97,7 @@ function App() {
   // Log of resolved rounds ({ youDelta, otherDelta }) used to compute the
   // running "rounds won" scoreboard shown each stage.
   const [rounds, setRounds] = useState([]);
+  const [muted, setMuted] = useState(isMuted());
 
   const handleStart = useCallback(() => {
     setClickPulse((c) => c + 1);
@@ -159,6 +161,22 @@ function App() {
 
       {/* thin border frame around the whole visible page */}
       <div className="pointer-events-none fixed inset-3 z-30 border border-[#F4F0E8]/15 md:inset-4" />
+
+      {/* audio toggle for live presenting */}
+      {!isLanding && (
+        <button
+          type="button"
+          onClick={() => setMuted(toggleMute())}
+          aria-label={muted ? "Unmute sound effects" : "Mute sound effects"}
+          className="fixed right-5 top-5 z-50 flex items-center gap-2 border border-[#F4F0E8]/25 bg-bg/70 px-3 py-1.5 font-mono text-[10px] font-bold tracking-[0.16em] text-text-secondary uppercase backdrop-blur-sm transition-colors hover:border-accent hover:text-accent md:right-6 md:top-6"
+        >
+          <span
+            className="inline-block h-2 w-2 rounded-full"
+            style={{ background: muted ? "#FF4D6D" : "#37FF8B" }}
+          />
+          {muted ? "Audio Off" : "Audio On"}
+        </button>
+      )}
 
       <div className="relative z-20 flex min-h-screen flex-col">
         {isLanding && <StatusBar />}
@@ -237,6 +255,7 @@ function App() {
                   <ChoiceStage
                     key={step.id}
                     stage={step}
+                    stepIndex={stepIndex}
                     you={you}
                     other={other}
                     roundsWon={roundsWon}
@@ -248,6 +267,7 @@ function App() {
                   <WildcardStage
                     key={step.id}
                     wildcard={resolvedStep}
+                    stepIndex={stepIndex}
                     you={you}
                     other={other}
                     roundsWon={roundsWon}

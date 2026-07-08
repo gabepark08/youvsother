@@ -22,11 +22,21 @@ body,
   height: 100%;
   margin: 0;
   background: var(--color-bg);
+  /* never allow sideways drift anywhere in the app */
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 body {
   font-family: var(--font-mono);
   -webkit-font-smoothing: antialiased;
+  /* hide the page scrollbar globally while keeping scroll functional */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+body::-webkit-scrollbar {
+  display: none;
 }
 
 .scrollbar-hide {
