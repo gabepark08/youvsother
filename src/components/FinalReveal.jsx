@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Avatar from "./Avatar";
 import { formatMoney } from "./MoneyValue";
-import { FAKE_LEADERBOARD } from "../data/stages";
+import { FAKE_LEADERBOARD, derivePersona } from "../data/stages";
 
 const YOU_COLOR = "#00E5FF";
 const OTHER_COLOR = "#FF2E88";
@@ -36,7 +36,7 @@ function CountUp({ value, duration = 1700, delay = 0 }) {
   return <>{formatMoney(display)}</>;
 }
 
-function Side({ identity, color, state, isWinner, declared, delay }) {
+function Side({ identity, color, state, persona, isWinner, declared, delay }) {
   const beats = state.beats.slice(-5);
   return (
     <motion.div
@@ -48,6 +48,25 @@ function Side({ identity, color, state, isWinner, declared, delay }) {
       <div className="font-heading text-2xl font-bold tracking-[0.2em] uppercase" style={{ color }}>
         {identity}
       </div>
+
+      {/* persona title card — awarded from the choices this side made */}
+      <motion.div
+        className="flex w-full max-w-md flex-col items-center gap-1.5 border-2 px-4 py-3 text-center"
+        style={{ borderColor: color, background: `${color}12` }}
+        initial={{ opacity: 0, scale: 0.85 }}
+        animate={declared ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.85 }}
+        transition={{ type: "spring", stiffness: 260, damping: 16, delay: 0.15 }}
+      >
+        <span className="font-mono text-[10px] font-bold tracking-[0.22em] text-text-secondary/70 uppercase">
+          Your Type
+        </span>
+        <span className="font-heading text-2xl font-bold tracking-tight uppercase" style={{ color }}>
+          {persona.title}
+        </span>
+        <span className="font-mono text-[11px] leading-relaxed text-text-primary/80">
+          {persona.caption}
+        </span>
+      </motion.div>
 
       <motion.div
         className="relative rounded-sm"
@@ -189,6 +208,9 @@ export default function FinalReveal({ you, other }) {
   const [declared, setDeclared] = useState(false);
   const shakeControls = useRef(null);
 
+  const youPersona = derivePersona(you.accessories);
+  const otherPersona = derivePersona(other.accessories);
+
   const gap = Math.abs(you.netWorth - other.netWorth);
   const youBigger = you.netWorth > other.netWorth;
   const otherBigger = other.netWorth > you.netWorth;
@@ -267,6 +289,7 @@ export default function FinalReveal({ you, other }) {
               identity="You"
               color={YOU_COLOR}
               state={you}
+              persona={youPersona}
               isWinner={youBigger}
               declared={declared}
               delay={0.2}
@@ -280,6 +303,7 @@ export default function FinalReveal({ you, other }) {
               identity="Other You"
               color={OTHER_COLOR}
               state={other}
+              persona={otherPersona}
               isWinner={otherBigger}
               declared={declared}
               delay={0.35}
