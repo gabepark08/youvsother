@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
 import Avatar from "./Avatar";
 import { formatMoney } from "./MoneyValue";
-import { FAKE_LEADERBOARD, buildLeaderboard, derivePersona } from "../data/stages";
+import { FAKE_LEADERBOARD, buildLeaderboard, derivePersonaPair } from "../data/stages";
 import { playImpact, playTick, playWinner } from "../lib/sfx";
 
 const YOU_COLOR = "#00E5FF";
@@ -220,8 +220,10 @@ export default function FinalReveal({ you, other }) {
   const [phase, setPhase] = useState("clash"); // clash | result
   const [declared, setDeclared] = useState(false);
 
-  const youPersona = derivePersona(you.accessories);
-  const otherPersona = derivePersona(other.accessories);
+  const { you: youPersona, other: otherPersona } = derivePersonaPair(
+    you.accessories,
+    other.accessories,
+  );
 
   const leaderboard = buildLeaderboard(you.netWorth, other.netWorth);
   const youRank = leaderboard.find((r) => r.isYou)?.rank;
@@ -442,8 +444,8 @@ export default function FinalReveal({ you, other }) {
             transition={{ duration: 0.5, delay: 0.85 }}
           >
             <div className="flex items-center justify-between font-mono text-xs font-bold tracking-[0.2em] uppercase">
-              <span className="text-accent">Fake Leaderboard</span>
-              <span className="text-text-secondary/60">// No one asked</span>
+              <span className="text-accent">Game Stats</span>
+              <span className="text-text-secondary/60">// Totally official</span>
             </div>
             <ul className="mt-4 divide-y divide-[#F4F0E8]/10">
               {FAKE_LEADERBOARD.map((row, i) => (

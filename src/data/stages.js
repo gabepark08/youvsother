@@ -443,24 +443,66 @@ export const ARCHETYPES = {
   },
 };
 
-// Tally a player's accessory items into a dominant archetype. Returns the meta
-// object ({ title, caption }) or a neutral fallback if nothing registered.
-export function derivePersona(accessories = []) {
+const PERSONA_FALLBACK = { title: "Undecided", caption: "The timeline never forced your hand." };
+
+// Rank a player's archetypes by how many picks landed in each, breaking ties by
+// archetype priority. Returns the sorted keys plus the raw tally.
+function rankArchetypes(accessories = []) {
   const tally = {};
   for (const item of accessories) {
     const key = ITEM_ARCHETYPE[item];
     if (key) tally[key] = (tally[key] || 0) + 1;
   }
-  const keys = Object.keys(tally);
-  if (keys.length === 0) {
-    return { title: "Undecided", caption: "The timeline never forced your hand." };
-  }
-  keys.sort((a, b) => {
+  const keys = Object.keys(tally).sort((a, b) => {
     if (tally[b] !== tally[a]) return tally[b] - tally[a]; // most picks first
     return ARCHETYPES[a].priority - ARCHETYPES[b].priority; // then priority
   });
+  return { keys, tally };
+}
+
+// Pick the next best archetype for a side, distinct from `taken`. Falls back to
+// any unused archetype (by priority) if this side has nothing else tallied.
+function pickAlternate(keys, taken) {
+  const own = keys.find((k) => k !== taken);
+  if (own) return own;
+  return (
+    Object.keys(ARCHETYPES)
+      .sort((a, b) => ARCHETYPES[a].priority - ARCHETYPES[b].priority)
+      .find((k) => k !== taken) || null
+  );
+}
+
+// Tally a player's accessory items into a dominant archetype. Returns the meta
+// object ({ title, caption }) or a neutral fallback if nothing registered.
+export function derivePersona(accessories = []) {
+  const { keys } = rankArchetypes(accessories);
+  if (keys.length === 0) return PERSONA_FALLBACK;
   const { title, caption } = ARCHETYPES[keys[0]];
   return { title, caption };
+}
+
+// Derive personas for BOTH sides at once, guaranteeing they never share the
+// same title. On a collision, the side with the weaker claim (fewer picks in
+// that archetype) yields and takes its next-best distinct archetype.
+export function derivePersonaPair(youAccessories = [], otherAccessories = []) {
+  const you = rankArchetypes(youAccessories);
+  const other = rankArchetypes(otherAccessories);
+  let youKey = you.keys[0] || null;
+  let otherKey = other.keys[0] || null;
+
+  if (youKey && otherKey && youKey === otherKey) {
+    const youCount = you.tally[youKey] || 0;
+    const otherCount = other.tally[otherKey] || 0;
+    if (otherCount > youCount) {
+      youKey = pickAlternate(you.keys, otherKey);
+    } else {
+      otherKey = pickAlternate(other.keys, youKey);
+    }
+  }
+
+  const toPersona = (key) =>
+    key ? { title: ARCHETYPES[key].title, caption: ARCHETYPES[key].caption } : PERSONA_FALLBACK;
+  return { you: toPersona(youKey), other: toPersona(otherKey) };
 }
 
 // Fake leaderboard rows for the final reveal — pure joke, no one asked.
