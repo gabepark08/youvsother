@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+@theme {
+  --font-heading: "Space Grotesk", sans-serif;
+  --font-mono: "IBM Plex Mono", monospace;
+
+  --color-bg: #070812;
+  --color-panel: #10111f;
+  --color-text-primary: #f4f0e8;
+  --color-text-secondary: #a7a3b7;
+  --color-you: #00e5ff;
+  --color-other: #ff2e88;
+  --color-accent: #f5ff3d;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  background: var(--color-bg);
+}
+
+body {
+  font-family: var(--font-mono);
+  -webkit-font-smoothing: antialiased;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+::selection {
+  background: var(--color-accent);
+  color: #070812;
+}
