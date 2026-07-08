@@ -67,6 +67,23 @@ export default function WildcardStage({ wildcard, stepIndex, you, other, roundsW
     { key: "other", label: "Other You", color: OTHER_COLOR, base: other, effect: wildcard.other },
   ];
 
+  // Reconstruct the lead-tax arithmetic so the banner visibly ADDS UP:
+  // the leader's shown delta is (base − swing), the trailer's is (base + boost).
+  const rb = wildcard.rubberBand;
+  const leadTax = rb
+    ? {
+        leaderLabel: rb.leaderKey === "you" ? "You" : "Other You",
+        leaderColor: rb.leaderKey === "you" ? YOU_COLOR : OTHER_COLOR,
+        trailerLabel: rb.trailerKey === "you" ? "You" : "Other You",
+        trailerColor: rb.trailerKey === "you" ? YOU_COLOR : OTHER_COLOR,
+        swing: rb.swing,
+        boost: rb.boost,
+        leaderNet: wildcard[rb.leaderKey].netWorthDelta,
+        leaderBase: wildcard[rb.leaderKey].netWorthDelta + rb.swing,
+        trailerNet: wildcard[rb.trailerKey].netWorthDelta,
+      }
+    : null;
+
   return (
     <motion.div
       className="fixed inset-0 z-40 flex flex-col bg-bg"
@@ -183,29 +200,28 @@ export default function WildcardStage({ wildcard, stepIndex, you, other, roundsW
                 // Lead Tax
               </span>
               <p className="font-mono text-[13px] leading-relaxed text-text-primary">
-                Running in front paints a target on you.{" "}
-                <span
-                  className="font-bold"
-                  style={{ color: wildcard.rubberBand.leaderKey === "you" ? YOU_COLOR : OTHER_COLOR }}
-                >
-                  {wildcard.rubberBand.leaderKey === "you" ? "You" : "Other You"}
+                Running in front paints a target on you.
+              </p>
+              <p className="mt-1 font-mono text-[13px] leading-relaxed text-text-primary">
+                <span className="font-bold" style={{ color: leadTax.leaderColor }}>
+                  {leadTax.leaderLabel}
                 </span>{" "}
-                took an extra{" "}
+                {leadTax.leaderLabel === "You" ? "were" : "was"} set for{" "}
+                <span className="font-bold">{deltaLabel(leadTax.leaderBase)}</span>, but leading skimmed{" "}
                 <span className="font-bold" style={{ color: "#FF4D6D" }}>
-                  -{formatMoney(wildcard.rubberBand.swing)}
+                  -{formatMoney(leadTax.swing)}
                 </span>{" "}
-                for leading, while{" "}
-                <span
-                  className="font-bold"
-                  style={{ color: wildcard.rubberBand.trailerKey === "you" ? YOU_COLOR : OTHER_COLOR }}
-                >
-                  {wildcard.rubberBand.trailerKey === "you" ? "You" : "Other You"}
+                &rarr; <span className="font-bold">{deltaLabel(leadTax.leaderNet)}</span>.
+              </p>
+              <p className="mt-1 font-mono text-[13px] leading-relaxed text-text-primary">
+                <span className="font-bold" style={{ color: leadTax.trailerColor }}>
+                  {leadTax.trailerLabel}
                 </span>{" "}
                 clawed back{" "}
                 <span className="font-bold" style={{ color: "#37FF8B" }}>
-                  +{formatMoney(wildcard.rubberBand.boost)}
-                </span>
-                .
+                  +{formatMoney(leadTax.boost)}
+                </span>{" "}
+                &rarr; <span className="font-bold">{deltaLabel(leadTax.trailerNet)}</span>.
               </p>
             </motion.div>
           )}

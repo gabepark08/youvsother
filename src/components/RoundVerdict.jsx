@@ -51,16 +51,26 @@ export default function RoundVerdict({ youDelta, otherDelta, youTotal, otherTota
   const gap = Math.abs(youTotal - otherTotal);
   const leader = youTotal > otherTotal ? "you" : otherTotal > youTotal ? "other" : "tie";
 
+  // Standings BEFORE this round, so the headline can tell overtaking apart from
+  // simply extending an existing lead or clawing back while still behind.
+  const priorYou = youTotal - youDelta;
+  const priorOther = otherTotal - otherDelta;
+  const priorLeader = priorYou > priorOther ? "you" : priorOther > priorYou ? "other" : "tie";
+
   let headline;
   let headlineColor = "#F5FF3D";
-  if (roundWinner === "you") {
-    headline = "YOU PULLED AHEAD THIS ROUND";
-    headlineColor = YOU_COLOR;
-  } else if (roundWinner === "other") {
-    headline = "OTHER YOU PULLED AHEAD THIS ROUND";
-    headlineColor = OTHER_COLOR;
-  } else {
+  if (roundWinner === "tie") {
     headline = "DEAD HEAT THIS ROUND";
+  } else {
+    const name = roundWinner === "you" ? "YOU" : "OTHER YOU";
+    headlineColor = roundWinner === "you" ? YOU_COLOR : OTHER_COLOR;
+    if (leader === roundWinner && priorLeader !== roundWinner) {
+      headline = `${name} TOOK THE LEAD`;
+    } else if (leader === roundWinner) {
+      headline = `${name} EXTENDED THE LEAD`;
+    } else {
+      headline = `${name} CLAWED BACK GROUND`;
+    }
   }
 
   const leaderLine =
