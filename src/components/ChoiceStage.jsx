@@ -71,7 +71,11 @@ export default function ChoiceStage({ stage, you, other, roundsWon = { you: 0, o
         const duration = 1300 + Math.random() * 600;
         setTimeout(() => {
           clearInterval(intervalId);
-          const finalOption = unchosen[Math.floor(Math.random() * unchosen.length)];
+          // Strategic Other You: always locks in the highest net-worth option
+          // still on the table, so it plays like a rival optimizing for money.
+          const finalOption = unchosen.reduce((best, o) =>
+            o.netWorthDelta > best.netWorthDelta ? o : best,
+          );
           setOtherCyclingId(null);
           setOtherSelectedId(finalOption.id);
           setIsResolvingOther(false);
